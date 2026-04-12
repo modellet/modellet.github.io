@@ -1,0 +1,2469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pico TD - Map Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-panel: #16213e;
+            --bg-input: #0f3460;
+            --text-primary: #eaeaea;
+            --text-secondary: #a0a0a0;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --border: #2a2a4a;
+            --tile-ground: #84c669;
+            --tile-flower: #b3c368;
+            --tile-tree: #439545;
+            --tile-road: #52607c;
+            --tile-bridge: #52607c;
+            --tile-water: #75e3ff;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: grid;
+            grid-template-columns: 262px 1fr 320px;
+            grid-template-rows: 50px 1fr;
+            height: 100vh;
+            gap: 1px;
+            background: var(--border);
+        }
+        
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+        
+        .btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+        
+        /* Left Panel - Tools */
+        .left-panel {
+            background: var(--bg-panel);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+        
+        .panel-section {
+            background: var(--bg-dark);
+            border-radius: 6px;
+            padding: 12px;
+        }
+        
+        .panel-section h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+        
+        .tile-palette {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+        
+        .tile-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            background: var(--bg-panel);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tile-btn:hover {
+            background: var(--bg-input);
+        }
+        
+        .tile-btn.active {
+            border-color: var(--accent);
+            background: var(--bg-input);
+        }
+        
+        .tile-preview {
+            width: 32px;
+            height: 32px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            image-rendering: pixelated;
+            background: #1a1a2e;
+        }
+        
+        .tile-label {
+            font-size: 11px;
+            color: var(--text-primary);
+        }
+        
+        .tile-char {
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+        
+        /* Center - Canvas */
+        .center-panel {
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .canvas-toolbar {
+            background: var(--bg-panel);
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .toolbar-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .zoom-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 4px;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .zoom-btn:hover {
+            background: var(--border);
+        }
+        
+        .zoom-level {
+            font-size: 12px;
+            min-width: 50px;
+            text-align: center;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #mapCanvas {
+            position: absolute;
+            cursor: crosshair;
+        }
+        
+        /* Right Panel - Properties */
+        .right-panel {
+            background: var(--bg-panel);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+        
+        .tabs {
+            display: flex;
+            background: var(--bg-dark);
+            border-radius: 6px;
+            padding: 3px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover {
+            color: var(--text-primary);
+        }
+        
+        .tab.active {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        /* Path List */
+        .item-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+        
+        .item-entry {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .item-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .item-entry:hover {
+            background: var(--bg-input);
+        }
+        
+        .item-entry.selected {
+            background: var(--accent);
+        }
+        
+        .item-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            margin-right: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        .item-name {
+            flex: 1;
+            font-size: 12px;
+        }
+        
+        .item-delete {
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+        }
+        
+        .item-delete:hover {
+            background: rgba(255,0,0,0.3);
+            color: white;
+        }
+        
+        /* Wave Editor */
+        .wave-item {
+            background: var(--bg-dark);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .wave-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .wave-title {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .enemy-group {
+            background: var(--bg-panel);
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .enemy-group-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .enemy-type-badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .enemy-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+        
+        .add-btn {
+            width: 100%;
+            padding: 8px;
+            border: 2px dashed var(--border);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .add-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background: var(--bg-panel);
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 400px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal h2 {
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+        
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .toast {
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .toast-success {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .toast-error {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* File input hidden */
+        #fileInput {
+            display: none;
+        }
+        
+        /* Keyboard shortcuts hint */
+        .shortcuts-hint {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        
+        .shortcuts-hint kbd {
+            background: var(--bg-input);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎮 Pico TD Map Editor</h1>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="editor.newLevel()">New</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">Open</button>
+                <input type="file" id="fileInput" accept=".ron" onchange="editor.loadFile(this)">
+                <button class="btn btn-primary" onclick="editor.exportFile()">Export .ron</button>
+            </div>
+        </header>
+        
+        <!-- Left Panel -->
+        <aside class="left-panel">
+            <div class="panel-section">
+                <h3>Tiles</h3>
+                <div class="tile-palette" id="tilePalette">
+                    <div class="tile-btn active" data-tile="#" onclick="editor.selectTile('#')">
+                        <canvas class="tile-preview" data-sprite-index="1" width="32" height="32"></canvas>
+                        <span class="tile-label">Ground</span>
+                        <span class="tile-char">#</span>
+                    </div>
+                    <div class="tile-btn" data-tile="." onclick="editor.selectTile('.')">
+                        <canvas class="tile-preview" data-sprite-index="66" width="32" height="32"></canvas>
+                        <span class="tile-label">Road</span>
+                        <span class="tile-char">.</span>
+                    </div>
+                    <div class="tile-btn" data-tile="~" onclick="editor.selectTile('~')">
+                        <canvas class="tile-preview" data-sprite-index="6" width="32" height="32"></canvas>
+                        <span class="tile-label">Water</span>
+                        <span class="tile-char">~</span>
+                    </div>
+                    <div class="tile-btn" data-tile="=" onclick="editor.selectTile('=')">
+                        <canvas class="tile-preview" data-sprite-index="54" width="32" height="32"></canvas>
+                        <span class="tile-label">Bridge</span>
+                        <span class="tile-char">=</span>
+                    </div>
+                    <div class="tile-btn" data-tile="F" onclick="editor.selectTile('F')">
+                        <canvas class="tile-preview" data-sprite-index="2" width="32" height="32"></canvas>
+                        <span class="tile-label">Flower</span>
+                        <span class="tile-char">F</span>
+                    </div>
+                    <div class="tile-btn" data-tile="T" onclick="editor.selectTile('T')">
+                        <canvas class="tile-preview" data-sprite-index="4" width="32" height="32"></canvas>
+                        <span class="tile-label">Tree</span>
+                        <span class="tile-char">T</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>Tools</h3>
+                <div class="toolbar-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="tool" value="paint" checked onchange="editor.setTool('paint')">
+                        <span style="font-size: 12px;">🖌️ Paint</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="tool" value="erase" onchange="editor.setTool('erase')">
+                        <span style="font-size: 12px;">🧹 Erase</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="tool" value="fill" onchange="editor.setTool('fill')">
+                        <span style="font-size: 12px;">🪣 Fill</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="tool" value="path" onchange="editor.setTool('path')">
+                        <span style="font-size: 12px;">📍 Path</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>Map Size</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Width</label>
+                        <input type="number" class="form-input" id="mapWidth" value="20" min="5" max="100" onchange="editor.resizeMap()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Height</label>
+                        <input type="number" class="form-input" id="mapHeight" value="20" min="5" max="100" onchange="editor.resizeMap()">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="shortcuts-hint">
+                <kbd>Ctrl+Z</kbd> Undo &nbsp; <kbd>Ctrl+Shift+Z</kbd> Redo<br>
+                <kbd>Ctrl+O</kbd> Open &nbsp; <kbd>Ctrl+S</kbd> Export<br>
+                <kbd>1-6</kbd> Select tile
+            </div>
+        </aside>
+        
+        <!-- Center - Canvas -->
+        <main class="center-panel">
+            <div class="canvas-toolbar">
+                <div class="toolbar-group">
+                    <span class="toolbar-label">Zoom:</span>
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" onclick="editor.zoomOut()">−</button>
+                        <span class="zoom-level" id="zoomLevel">100%</span>
+                        <button class="zoom-btn" onclick="editor.zoomIn()">+</button>
+                        <button class="zoom-btn" onclick="editor.resetZoom()">⟲</button>
+                    </div>
+                </div>
+                <div class="toolbar-group">
+                    <span class="toolbar-label">Position:</span>
+                    <span id="cursorPos" style="font-size: 12px; min-width: 60px;">(0, 0)</span>
+                </div>
+                <div class="toolbar-group" style="margin-left: auto;">
+                    <span class="toolbar-label">Current: </span>
+                    <span id="currentLevel" style="font-size: 12px; color: var(--accent);">New Level</span>
+                </div>
+            </div>
+            <div class="canvas-container" id="canvasContainer">
+                <canvas id="mapCanvas"></canvas>
+            </div>
+        </main>
+        
+        <!-- Right Panel -->
+        <aside class="right-panel">
+            <div class="tabs">
+                <button class="tab active" data-tab="metadata" onclick="editor.switchTab('metadata')">Level</button>
+                <button class="tab" data-tab="paths" onclick="editor.switchTab('paths')">Paths</button>
+                <button class="tab" data-tab="waves" onclick="editor.switchTab('waves')">Waves</button>
+            </div>
+            
+            <!-- Metadata Tab -->
+            <div class="tab-content active" id="tab-metadata">
+                <div class="panel-section">
+                    <h3>Level Properties</h3>
+                    <div class="form-group">
+                        <label class="form-label">Level Name</label>
+                        <input type="text" class="form-input" id="levelName" value="new_level" onchange="editor.updateMetadata()">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Player Health</label>
+                            <input type="number" class="form-input" id="playerHealth" value="100" min="1" onchange="editor.updateMetadata()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Player Money</label>
+                            <input type="number" class="form-input" id="playerMoney" value="150" min="0" onchange="editor.updateMetadata()">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Viewport W</label>
+                            <input type="number" class="form-input" id="viewportW" value="20" min="1" onchange="editor.updateMetadata()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Viewport H</label>
+                            <input type="number" class="form-input" id="viewportH" value="20" min="1" onchange="editor.updateMetadata()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Tile Symbols (Optional)</h3>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">Customize tile symbols or use defaults</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Ground</label>
+                            <input type="text" class="form-input" id="symGround" value="#" maxlength="1" onchange="editor.updateTileSymbols()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Road</label>
+                            <input type="text" class="form-input" id="symRoad" value="." maxlength="1" onchange="editor.updateTileSymbols()">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Water</label>
+                            <input type="text" class="form-input" id="symWater" value="~" maxlength="1" onchange="editor.updateTileSymbols()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bridge</label>
+                            <input type="text" class="form-input" id="symBridge" value="=" maxlength="1" onchange="editor.updateTileSymbols()">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Flower</label>
+                            <input type="text" class="form-input" id="symFlower" value="F" maxlength="1" onchange="editor.updateTileSymbols()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tree</label>
+                            <input type="text" class="form-input" id="symTree" value="T" maxlength="1" onchange="editor.updateTileSymbols()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Paths Tab -->
+            <div class="tab-content" id="tab-paths">
+                <div class="panel-section">
+                    <h3>Enemy Paths</h3>
+                    <div class="item-list" id="pathList">
+                        <!-- Paths will be rendered here -->
+                    </div>
+                    <button class="add-btn" onclick="editor.addPath()">+ Add Path</button>
+                </div>
+                
+                <div class="panel-section" id="pathEditor" style="display: none;">
+                    <h3>Edit Path <span id="pathIndex"></span></h3>
+                    <div class="form-group">
+                        <label class="form-label">Color (RGB)</label>
+                        <div class="form-row">
+                            <input type="number" class="form-input" id="pathColorR" value="1" min="0" max="1" step="0.1" onchange="editor.updatePathColor()">
+                            <input type="number" class="form-input" id="pathColorG" value="0" min="0" max="1" step="0.1" onchange="editor.updatePathColor()">
+                            <input type="number" class="form-input" id="pathColorB" value="0" min="0" max="1" step="0.1" onchange="editor.updatePathColor()">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Waypoints (click on canvas in Path Edit mode)</label>
+                        <div class="item-list" id="waypointList" style="max-height: 150px;">
+                            <!-- Waypoints will be rendered here -->
+                        </div>
+                        <button class="add-btn" onclick="editor.clearWaypoints()">Clear All Waypoints</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Waves Tab -->
+            <div class="tab-content" id="tab-waves">
+                <div class="panel-section">
+                    <h3>Waves</h3>
+                    <div id="waveList">
+                        <!-- Waves will be rendered here -->
+                    </div>
+                    <button class="add-btn" onclick="editor.addWave()">+ Add Wave</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+    <!-- Modal for Enemy Group Editor -->
+    <div class="modal-overlay" id="enemyModal">
+        <div class="modal">
+            <h2>Add Enemy Group</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Enemy Type</label>
+                    <select class="form-input" id="enemyType">
+                        <option value="Truck">Truck</option>
+                        <option value="Tank">Tank</option>
+                        <option value="Dron">Dron</option>
+                        <option value="Plane">Plane</option>
+                        <option value="Helicopter">Helicopter</option>
+                        <option value="Boat">Boat</option>
+                        <option value="Submarine">Submarine</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Level</label>
+                    <select class="form-input" id="enemyLevel">
+                        <option value="Mk1">Mk1</option>
+                        <option value="Mk2">Mk2</option>
+                        <option value="Mk3">Mk3</option>
+                        <option value="Mk4">Mk4</option>
+                        <option value="Mk5">Mk5</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Count</label>
+                    <input type="number" class="form-input" id="enemyCount" value="10" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Path Index</label>
+                    <input type="number" class="form-input" id="enemyPathIndex" value="0" min="0">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Duration (s)</label>
+                    <input type="number" class="form-input" id="enemyDuration" value="20" min="0.1" step="0.5">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Spawn Interval (s)</label>
+                    <input type="number" class="form-input" id="enemyInterval" value="0.5" min="0.1" step="0.1">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Spawn Delay (s)</label>
+                <input type="number" class="form-input" id="enemyDelay" value="0" min="0" step="0.5">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="editor.closeEnemyModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="editor.saveEnemyGroup()">Add</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+    // ============================================================
+    // PICO TD MAP EDITOR - Complete Single-File Implementation
+    // With Auto-Tiling using actual game tilemap
+    // ============================================================
+
+    (function() {
+        'use strict';
+
+        // ============================================================
+        // CONSTANTS
+        // ============================================================
+        
+        const TILE_SIZE = 16;  // Original tile size in pixels
+        const ATLAS_COLS = 8;  // 8 columns in tilemap
+        const ATLAS_ROWS = 10; // 10 rows in tilemap
+        
+        const TILE_COLORS = {
+            '#': '#84c669',  // Ground
+            '.': '#52607c',  // Road
+            '~': '#75e3ff',  // Water
+            '=': '#52607c',  // Bridge
+            'F': '#b3c368',  // Flower
+            'T': '#439545',  // Tree
+            '?': '#333333'   // Unknown
+        };
+
+        const DEFAULT_TILE_SYMBOLS = {
+            ground: '#',
+            flower: 'F',
+            tree: 'T',
+            road: '.',
+            bridge: '=',
+            water: '~'
+        };
+
+        const ENEMY_TYPES = ['Truck', 'Tank', 'Dron', 'Plane', 'Helicopter', 'Boat', 'Submarine'];
+        const ENEMY_LEVELS = ['Mk1', 'Mk2', 'Mk3', 'Mk4', 'Mk5'];
+
+        // ============================================================
+        // TILE SPRITE INDICES (from TilemapTileSpriteVariant enum)
+        // ============================================================
+        
+        const SPRITE_INDICES = {
+            Unknown: 79,
+            
+            // Ground
+            Ground: 0,
+            GroundWithGrass: 1,
+            GroundWithFlower: 2,
+            GroundWithDoubleFlower: 3,
+            GroundWithTree: 4,
+            GroundWithDoubleTree: 5,
+            
+            // Water
+            Water: 6,
+            WaterShoreTopRightBottomLeft: 7,
+            WaterShoreTopLeft: 8,
+            WaterShoreTopRight: 9,
+            WaterShoreTopLeftDiagonalBottomRight: 10,
+            WaterShoreTopRightDiagonalBottomLeft: 11,
+            WaterShoreTop: 12,
+            WaterShoreRight: 13,
+            WaterShoreBottom: 14,
+            WaterShoreLeft: 15,
+            WaterShoreBottomLeft: 16,
+            WaterShoreBottomRight: 17,
+            WaterShoreBottomLeftDiagonalTopRight: 18,
+            WaterShoreBottomRightDiagonalTopLeft: 19,
+            WaterShoreTopDiagonalLeft: 20,
+            WaterShoreRightDiagonalTop: 21,
+            WaterShoreBottomDiagonalLeft: 22,
+            WaterShoreLeftDiagonalTop: 23,
+            WaterShoreDiagonalBottomRight: 24,
+            WaterShoreDiagonalBottomLeft: 25,
+            WaterShoreDiagonalTopLeftDiagonalBottomRight: 26,
+            WaterShoreDiagonalBottomLeftRight: 27,
+            WaterShoreTopDiagonalRight: 28,
+            WaterShoreRightDiagonalBottom: 29,
+            WaterShoreBottomDiagonalRight: 30,
+            WaterShoreLeftDiagonalBottom: 31,
+            WaterShoreDiagonalTopRight: 32,
+            WaterShoreDiagonalTopLeft: 33,
+            WaterShoreDiagonalTopRightDiagonalBottomLeft: 34,
+            WaterShoreLeftRight: 35,
+            WaterShoreTopDiagonalLeftRight: 36,
+            WaterShoreRightDiagonalTopBottom: 37,
+            WaterShoreBottomDiagonalLeftRight: 38,
+            WaterShoreLeftDiagonalTopBottom: 39,
+            WaterShoreDiagonalRightTopBottom: 40,
+            WaterShoreTopBottom: 41,
+            WaterShoreDiagonalLeftTopBottom: 42,
+            WaterShoreDiagonalTopLeftRight: 43,
+            WaterShoreTopLeftRight: 44,
+            WaterShoreRightTopBottom: 45,
+            WaterShoreBottomLeftRight: 46,
+            WaterShoreLeftTopBottom: 47,
+            
+            // Road
+            Road: 48,
+            RoadRight: 49,
+            RoadLeftRight: 50,
+            RoadLeft: 51,
+            BridgeLeftRightRoadLeftRight: 52,
+            BridgeLeftRightRoadLeft: 53,
+            BridgeLeftRight: 54,
+            BridgeLeftRightRoadRight: 55,
+            RoadBottom: 56,
+            RoadBottomRight: 57,
+            RoadBottomLeftRight: 58,
+            RoadBottomLeft: 59,
+            BridgeTopBottomRoadTopBottom: 60,
+            BridgeTopBottomRoadTop: 61,
+            BridgeTopBottom: 62,
+            BridgeTopBottomRoadBottom: 63,
+            RoadTopBottom: 64,
+            RoadRightTopBottom: 65,
+            RoadTopRightBottomLeft: 66,
+            RoadLeftTopBottom: 67,
+            RoadTop: 72,
+            RoadTopRight: 73,
+            RoadTopLeftRight: 74,
+            RoadTopLeft: 75
+        };
+
+        // ============================================================
+        // AUTO-TILING ALGORITHM (ported from Rust)
+        // ============================================================
+        
+        function getTileVariant(char) {
+            switch(char) {
+                case '#': return 'Ground';
+                case 'F': return 'Flower';
+                case 'T': return 'Tree';
+                case '.': return 'Road';
+                case '=': return 'Bridge';
+                case '~': return 'Water';
+                default: return 'Unknown';
+            }
+        }
+        
+        function getTilesAround(map, x, y, width, height) {
+            const result = [
+                ['Unknown', 'Unknown', 'Unknown'],
+                ['Unknown', 'Unknown', 'Unknown'],
+                ['Unknown', 'Unknown', 'Unknown']
+            ];
+            
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    const ry = dy + 1;
+                    const rx = dx + 1;
+                    
+                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+                        result[ry][rx] = 'Unknown';
+                    } else {
+                        result[ry][rx] = getTileVariant(map[ny][nx]);
+                    }
+                }
+            }
+            
+            return result;
+        }
+        
+        function getGroundTileIndex(tilesAround) {
+            // Always use GroundWithGrass (index 1) for visible texture
+            // Index 0 is solid green, index 1 has grass details
+            return SPRITE_INDICES.GroundWithGrass;
+        }
+        
+        function getFlowerTileIndex(tilesAround) {
+            const flowerTop = tilesAround[0][1] === 'Flower';
+            const flowerRight = tilesAround[1][2] === 'Flower';
+            const flowerBottom = tilesAround[2][1] === 'Flower';
+            const flowerLeft = tilesAround[1][0] === 'Flower';
+            
+            const flowerCount = [flowerTop, flowerRight, flowerBottom, flowerLeft].filter(Boolean).length;
+            
+            if (flowerCount >= 2) {
+                return SPRITE_INDICES.GroundWithDoubleFlower;
+            }
+            return SPRITE_INDICES.GroundWithFlower;
+        }
+        
+        function getTreeTileIndex(tilesAround) {
+            const treeTop = tilesAround[0][1] === 'Tree';
+            const treeRight = tilesAround[1][2] === 'Tree';
+            const treeBottom = tilesAround[2][1] === 'Tree';
+            const treeLeft = tilesAround[1][0] === 'Tree';
+            
+            const treeCount = [treeTop, treeRight, treeBottom, treeLeft].filter(Boolean).length;
+            
+            if (treeCount >= 2) {
+                return SPRITE_INDICES.GroundWithDoubleTree;
+            }
+            return SPRITE_INDICES.GroundWithTree;
+        }
+        
+        function getRoadTileIndex(tilesAround) {
+            const roadTop = tilesAround[0][1] === 'Road' || tilesAround[0][1] === 'Bridge';
+            const roadRight = tilesAround[1][2] === 'Road' || tilesAround[1][2] === 'Bridge';
+            const roadBottom = tilesAround[2][1] === 'Road' || tilesAround[2][1] === 'Bridge';
+            const roadLeft = tilesAround[1][0] === 'Road' || tilesAround[1][0] === 'Bridge';
+            
+            const unknownTop = tilesAround[0][1] === 'Unknown';
+            const unknownRight = tilesAround[1][2] === 'Unknown';
+            const unknownBottom = tilesAround[2][1] === 'Unknown';
+            const unknownLeft = tilesAround[1][0] === 'Unknown';
+            
+            const key = [roadTop, roadRight, roadBottom, roadLeft];
+            
+            if (!roadTop && !roadRight && !roadBottom && !roadLeft) return SPRITE_INDICES.Road;
+            
+            if (roadTop && !roadRight && !roadBottom && !roadLeft) {
+                return unknownBottom ? SPRITE_INDICES.RoadTopBottom : SPRITE_INDICES.RoadTop;
+            }
+            if (!roadTop && roadRight && !roadBottom && !roadLeft) {
+                return unknownLeft ? SPRITE_INDICES.RoadLeftRight : SPRITE_INDICES.RoadRight;
+            }
+            if (!roadTop && !roadRight && roadBottom && !roadLeft) {
+                return unknownTop ? SPRITE_INDICES.RoadTopBottom : SPRITE_INDICES.RoadBottom;
+            }
+            if (!roadTop && !roadRight && !roadBottom && roadLeft) {
+                return unknownRight ? SPRITE_INDICES.RoadLeftRight : SPRITE_INDICES.RoadLeft;
+            }
+            
+            if (roadTop && !roadRight && roadBottom && !roadLeft) return SPRITE_INDICES.RoadTopBottom;
+            if (!roadTop && roadRight && !roadBottom && roadLeft) return SPRITE_INDICES.RoadLeftRight;
+            
+            if (roadTop && !roadRight && !roadBottom && roadLeft) return SPRITE_INDICES.RoadTopLeft;
+            if (roadTop && roadRight && !roadBottom && !roadLeft) return SPRITE_INDICES.RoadTopRight;
+            if (!roadTop && !roadRight && roadBottom && roadLeft) return SPRITE_INDICES.RoadBottomLeft;
+            if (!roadTop && roadRight && roadBottom && !roadLeft) return SPRITE_INDICES.RoadBottomRight;
+            
+            if (roadTop && roadRight && !roadBottom && roadLeft) return SPRITE_INDICES.RoadTopLeftRight;
+            if (roadTop && roadRight && roadBottom && !roadLeft) return SPRITE_INDICES.RoadRightTopBottom;
+            if (!roadTop && roadRight && roadBottom && roadLeft) return SPRITE_INDICES.RoadBottomLeftRight;
+            if (roadTop && !roadRight && roadBottom && roadLeft) return SPRITE_INDICES.RoadLeftTopBottom;
+            
+            if (roadTop && roadRight && roadBottom && roadLeft) return SPRITE_INDICES.RoadTopRightBottomLeft;
+            
+            return SPRITE_INDICES.Road;
+        }
+        
+        function getBridgeTileIndex(tilesAround) {
+            const roadTop = tilesAround[0][1] === 'Road';
+            const roadRight = tilesAround[1][2] === 'Road';
+            const roadBottom = tilesAround[2][1] === 'Road';
+            const roadLeft = tilesAround[1][0] === 'Road';
+            
+            const waterTop = tilesAround[0][1] === 'Water';
+            const waterRight = tilesAround[1][2] === 'Water';
+            const waterBottom = tilesAround[2][1] === 'Water';
+            const waterLeft = tilesAround[1][0] === 'Water';
+            
+            // Horizontal bridge (water top + bottom)
+            if (waterTop && !waterRight && waterBottom && !waterLeft) {
+                if (!roadLeft && !roadRight) return SPRITE_INDICES.BridgeLeftRight;
+                if (roadLeft && !roadRight) return SPRITE_INDICES.BridgeLeftRightRoadLeft;
+                if (!roadLeft && roadRight) return SPRITE_INDICES.BridgeLeftRightRoadRight;
+                if (roadLeft && roadRight) return SPRITE_INDICES.BridgeLeftRightRoadLeftRight;
+            }
+            
+            // Vertical bridge (water left + right)
+            if (!waterTop && waterRight && !waterBottom && waterLeft) {
+                if (!roadTop && !roadBottom) return SPRITE_INDICES.BridgeTopBottom;
+                if (roadTop && !roadBottom) return SPRITE_INDICES.BridgeTopBottomRoadTop;
+                if (!roadTop && roadBottom) return SPRITE_INDICES.BridgeTopBottomRoadBottom;
+                if (roadTop && roadBottom) return SPRITE_INDICES.BridgeTopBottomRoadTopBottom;
+            }
+            
+            return getRoadTileIndex(tilesAround);
+        }
+        
+        function getWaterTileIndex(tilesAround) {
+            // Check for ground/flower/tree/road around
+            const isGround = (v) => ['Ground', 'Flower', 'Tree', 'Road'].includes(v);
+            
+            const groundTopLeft = isGround(tilesAround[0][0]);
+            const groundTop = isGround(tilesAround[0][1]);
+            const groundTopRight = isGround(tilesAround[0][2]);
+            const groundLeft = isGround(tilesAround[1][0]);
+            const groundRight = isGround(tilesAround[1][2]);
+            const groundBottomLeft = isGround(tilesAround[2][0]);
+            const groundBottom = isGround(tilesAround[2][1]);
+            const groundBottomRight = isGround(tilesAround[2][2]);
+            
+            const key = [groundTop, groundRight, groundBottom, groundLeft];
+            
+            // Single edge
+            if (groundTop && !groundRight && !groundBottom && !groundLeft) {
+                if (!groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreTop;
+                if (groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreTopDiagonalLeft;
+                if (!groundBottomLeft && groundBottomRight) return SPRITE_INDICES.WaterShoreTopDiagonalRight;
+                if (groundBottomLeft && groundBottomRight) return SPRITE_INDICES.WaterShoreTopDiagonalLeftRight;
+            }
+            if (!groundTop && groundRight && !groundBottom && !groundLeft) {
+                if (!groundTopLeft && !groundBottomLeft) return SPRITE_INDICES.WaterShoreRight;
+                if (groundTopLeft && !groundBottomLeft) return SPRITE_INDICES.WaterShoreRightDiagonalTop;
+                if (!groundTopLeft && groundBottomLeft) return SPRITE_INDICES.WaterShoreRightDiagonalBottom;
+                if (groundTopLeft && groundBottomLeft) return SPRITE_INDICES.WaterShoreRightDiagonalTopBottom;
+            }
+            if (!groundTop && !groundRight && groundBottom && !groundLeft) {
+                if (!groundTopLeft && !groundTopRight) return SPRITE_INDICES.WaterShoreBottom;
+                if (groundTopLeft && !groundTopRight) return SPRITE_INDICES.WaterShoreBottomDiagonalLeft;
+                if (!groundTopLeft && groundTopRight) return SPRITE_INDICES.WaterShoreBottomDiagonalRight;
+                if (groundTopLeft && groundTopRight) return SPRITE_INDICES.WaterShoreBottomDiagonalLeftRight;
+            }
+            if (!groundTop && !groundRight && !groundBottom && groundLeft) {
+                if (!groundTopRight && !groundBottomRight) return SPRITE_INDICES.WaterShoreLeft;
+                if (groundTopRight && !groundBottomRight) return SPRITE_INDICES.WaterShoreLeftDiagonalTop;
+                if (!groundTopRight && groundBottomRight) return SPRITE_INDICES.WaterShoreLeftDiagonalBottom;
+                if (groundTopRight && groundBottomRight) return SPRITE_INDICES.WaterShoreLeftDiagonalTopBottom;
+            }
+            
+            // Two edges opposite
+            if (groundTop && !groundRight && groundBottom && !groundLeft) return SPRITE_INDICES.WaterShoreTopBottom;
+            if (!groundTop && groundRight && !groundBottom && groundLeft) return SPRITE_INDICES.WaterShoreLeftRight;
+            
+            // Two edges adjacent (corners)
+            if (groundTop && !groundRight && !groundBottom && groundLeft) {
+                return groundBottomRight ? SPRITE_INDICES.WaterShoreTopLeftDiagonalBottomRight : SPRITE_INDICES.WaterShoreTopLeft;
+            }
+            if (groundTop && groundRight && !groundBottom && !groundLeft) {
+                return groundBottomLeft ? SPRITE_INDICES.WaterShoreTopRightDiagonalBottomLeft : SPRITE_INDICES.WaterShoreTopRight;
+            }
+            if (!groundTop && !groundRight && groundBottom && groundLeft) {
+                return groundTopRight ? SPRITE_INDICES.WaterShoreBottomLeftDiagonalTopRight : SPRITE_INDICES.WaterShoreBottomLeft;
+            }
+            if (!groundTop && groundRight && groundBottom && !groundLeft) {
+                return groundTopLeft ? SPRITE_INDICES.WaterShoreBottomRightDiagonalTopLeft : SPRITE_INDICES.WaterShoreBottomRight;
+            }
+            
+            // Three edges (T-junctions)
+            if (groundTop && groundRight && !groundBottom && groundLeft) return SPRITE_INDICES.WaterShoreTopLeftRight;
+            if (groundTop && groundRight && groundBottom && !groundLeft) return SPRITE_INDICES.WaterShoreRightTopBottom;
+            if (!groundTop && groundRight && groundBottom && groundLeft) return SPRITE_INDICES.WaterShoreBottomLeftRight;
+            if (groundTop && !groundRight && groundBottom && groundLeft) return SPRITE_INDICES.WaterShoreLeftTopBottom;
+            
+            // Four edges (island)
+            if (groundTop && groundRight && groundBottom && groundLeft) return SPRITE_INDICES.WaterShoreTopRightBottomLeft;
+            
+            // Diagonal corners only
+            if (!groundTop && !groundRight && !groundBottom && !groundLeft) {
+                if (groundTopLeft && !groundTopRight && !groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalTopLeft;
+                if (!groundTopLeft && groundTopRight && !groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalTopRight;
+                if (!groundTopLeft && !groundTopRight && groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalBottomLeft;
+                if (!groundTopLeft && !groundTopRight && !groundBottomLeft && groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalBottomRight;
+                
+                if (groundTopLeft && groundTopRight && !groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalTopLeftRight;
+                if (!groundTopLeft && groundTopRight && !groundBottomLeft && groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalRightTopBottom;
+                if (!groundTopLeft && !groundTopRight && groundBottomLeft && groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalBottomLeftRight;
+                if (groundTopLeft && !groundTopRight && groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalLeftTopBottom;
+                
+                if (groundTopLeft && !groundTopRight && !groundBottomLeft && groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalTopLeftDiagonalBottomRight;
+                if (!groundTopLeft && groundTopRight && groundBottomLeft && !groundBottomRight) return SPRITE_INDICES.WaterShoreDiagonalTopRightDiagonalBottomLeft;
+            }
+            
+            return SPRITE_INDICES.Water;
+        }
+        
+        function getTileIndex(map, x, y, width, height) {
+            const char = map[y][x];
+            const variant = getTileVariant(char);
+            const tilesAround = getTilesAround(map, x, y, width, height);
+            
+            switch (variant) {
+                case 'Ground': return getGroundTileIndex(tilesAround);
+                case 'Flower': return getFlowerTileIndex(tilesAround);
+                case 'Tree': return getTreeTileIndex(tilesAround);
+                case 'Road': return getRoadTileIndex(tilesAround);
+                case 'Bridge': return getBridgeTileIndex(tilesAround);
+                case 'Water': return getWaterTileIndex(tilesAround);
+                default: return SPRITE_INDICES.Unknown;
+            }
+        }
+        
+        // Convert sprite index to atlas coordinates
+        function indexToCoords(index) {
+            return {
+                col: index % ATLAS_COLS,
+                row: Math.floor(index / ATLAS_COLS)
+            };
+        }
+
+        // ============================================================
+        // DATA MODEL
+        // ============================================================
+
+        function createEmptyLevel() {
+            const width = 20;
+            const height = 20;
+            return {
+                name: 'new_level',
+                player_health: 100,
+                player_money: 150,
+                viewport_size: [20, 20],
+                map_size: [width, height],
+                map: Array(height).fill(null).map(() => '#'.repeat(width)),
+                tile_symbols: null,  // null means use defaults
+                paths: [],
+                waves: []
+            };
+        }
+
+        function validateLevel(level) {
+            const errors = [];
+            
+            if (!level.name || level.name.trim() === '') {
+                errors.push('Level name is required');
+            }
+            
+            if (!level.map_size || level.map_size.length !== 2) {
+                errors.push('Map size must be [width, height]');
+            }
+            
+            if (level.map.length !== level.map_size[1]) {
+                errors.push(`Map has ${level.map.length} rows but map_size.y is ${level.map_size[1]}`);
+            }
+            
+            for (let i = 0; i < level.map.length; i++) {
+                if (level.map[i].length !== level.map_size[0]) {
+                    errors.push(`Row ${i} has ${level.map[i].length} columns but map_size.x is ${level.map_size[0]}`);
+                }
+            }
+            
+            if (level.waves) {
+                for (let wi = 0; wi < level.waves.length; wi++) {
+                    const wave = level.waves[wi];
+                    for (let ei = 0; ei < wave.enemies.length; ei++) {
+                        const enemy = wave.enemies[ei];
+                        if (enemy.path_index >= level.paths.length) {
+                            errors.push(`Wave ${wi} enemy ${ei}: path_index ${enemy.path_index} out of bounds (only ${level.paths.length} paths)`);
+                        }
+                    }
+                }
+            }
+            
+            return errors;
+        }
+
+        // ============================================================
+        // RON PARSER
+        // ============================================================
+
+        function parseRON(text) {
+            // Remove comments
+            text = text.replace(/\/\/.*$/gm, '');
+            
+            // Parse the LevelAsset wrapper
+            const match = text.match(/LevelAsset\s*\(([\s\S]*)\)\s*$/);
+            if (!match) {
+                throw new Error('Invalid RON: Expected LevelAsset(...)');
+            }
+            
+            const content = match[1];
+            return parseObject(content);
+        }
+
+        function parseObject(text) {
+            const result = {};
+            let pos = 0;
+            
+            function skipWhitespace() {
+                while (pos < text.length && /\s/.test(text[pos])) pos++;
+            }
+            
+            function parseValue() {
+                skipWhitespace();
+                
+                if (text[pos] === '(') {
+                    // Tuple or struct
+                    pos++;
+                    skipWhitespace();
+                    
+                    // Check if it's a simple tuple like (1.0, 0.5, 0.0) or (20, 20)
+                    const tupleMatch = text.slice(pos).match(/^([\d.\-]+)\s*,\s*([\d.\-]+)\s*(?:,\s*([\d.\-]+)\s*)?\)/);
+                    if (tupleMatch) {
+                        pos += tupleMatch[0].length;
+                        const values = [tupleMatch[1], tupleMatch[2]];
+                        if (tupleMatch[3]) values.push(tupleMatch[3]);
+                        // Return as array (will convert to appropriate type later)
+                        return values.map(v => {
+                            if (v.includes('.')) return parseFloat(v);
+                            return parseInt(v);
+                        });
+                    }
+                    
+                    // It's a struct
+                    const obj = {};
+                    while (pos < text.length && text[pos] !== ')') {
+                        skipWhitespace();
+                        if (text[pos] === ')') break;
+                        
+                        const keyMatch = text.slice(pos).match(/^(\w+)\s*:/);
+                        if (keyMatch) {
+                            const key = keyMatch[1];
+                            pos += keyMatch[0].length;
+                            obj[key] = parseValue();
+                            skipWhitespace();
+                            if (text[pos] === ',') pos++;
+                        } else {
+                            pos++;
+                        }
+                    }
+                    if (text[pos] === ')') pos++;
+                    return obj;
+                    
+                } else if (text[pos] === '[') {
+                    // Array
+                    pos++;
+                    const arr = [];
+                    while (pos < text.length && text[pos] !== ']') {
+                        skipWhitespace();
+                        if (text[pos] === ']') break;
+                        arr.push(parseValue());
+                        skipWhitespace();
+                        if (text[pos] === ',') pos++;
+                    }
+                    if (text[pos] === ']') pos++;
+                    return arr;
+                    
+                } else if (text[pos] === '"') {
+                    // String
+                    pos++;
+                    let str = '';
+                    while (pos < text.length && text[pos] !== '"') {
+                        if (text[pos] === '\\' && pos + 1 < text.length) {
+                            pos++;
+                            str += text[pos];
+                        } else {
+                            str += text[pos];
+                        }
+                        pos++;
+                    }
+                    if (text[pos] === '"') pos++;
+                    return str;
+                    
+                } else if (text.slice(pos).match(/^Some\s*\(/)) {
+                    // Some(value)
+                    pos += 5; // 'Some('
+                    const val = parseValue();
+                    skipWhitespace();
+                    if (text[pos] === ')') pos++;
+                    return val;
+                    
+                } else if (text.slice(pos).match(/^None/)) {
+                    // None
+                    pos += 4;
+                    return null;
+                    
+                } else if (text.slice(pos).match(/^true/)) {
+                    pos += 4;
+                    return true;
+                    
+                } else if (text.slice(pos).match(/^false/)) {
+                    pos += 5;
+                    return false;
+                    
+                } else {
+                    // Number or identifier
+                    const numMatch = text.slice(pos).match(/^([\d.\-]+e[\d\-]+|[\d.\-]+)/);
+                    if (numMatch) {
+                        pos += numMatch[0].length;
+                        const num = numMatch[1];
+                        if (num.includes('.') || num.includes('e')) {
+                            return parseFloat(num);
+                        }
+                        return parseInt(num);
+                    }
+                    
+                    // Identifier (enum variant like Truck(Mk1))
+                    const identMatch = text.slice(pos).match(/^(\w+)(?:\((\w+)\))?/);
+                    if (identMatch) {
+                        pos += identMatch[0].length;
+                        if (identMatch[2]) {
+                            return { type: identMatch[1], level: identMatch[2] };
+                        }
+                        return identMatch[1];
+                    }
+                    
+                    pos++;
+                    return null;
+                }
+            }
+            
+            // Parse key-value pairs
+            while (pos < text.length) {
+                skipWhitespace();
+                if (pos >= text.length) break;
+                
+                const keyMatch = text.slice(pos).match(/^(\w+)\s*:\s*/);
+                if (keyMatch) {
+                    const key = keyMatch[1];
+                    pos += keyMatch[0].length;
+                    result[key] = parseValue();
+                    skipWhitespace();
+                    if (text[pos] === ',') pos++;
+                } else {
+                    pos++;
+                }
+            }
+            
+            return result;
+        }
+
+        function convertParsedToLevel(parsed) {
+            const level = {
+                name: parsed.name || 'unnamed',
+                player_health: parsed.player_health || 100,
+                player_money: parsed.player_money || 150,
+                viewport_size: parsed.viewport_size || null,
+                map_size: parsed.map_size || [20, 20],
+                map: parsed.map || [],
+                tile_symbols: parsed.tile_symbols || null,
+                paths: [],
+                waves: []
+            };
+            
+            // Convert paths
+            if (parsed.paths && Array.isArray(parsed.paths)) {
+                level.paths = parsed.paths.map(p => ({
+                    color: p.color || [1, 0, 0],
+                    points: p.points || []
+                }));
+            }
+            
+            // Convert waves
+            if (parsed.waves && Array.isArray(parsed.waves)) {
+                level.waves = parsed.waves.map(w => ({
+                    reward: w.reward || 100,
+                    enemies: (w.enemies || []).map(e => {
+                        // Handle enemy_variant
+                        let variant;
+                        if (typeof e.enemy_variant === 'object' && e.enemy_variant.type) {
+                            variant = `${e.enemy_variant.type}(${e.enemy_variant.level})`;
+                        } else {
+                            variant = e.enemy_variant || 'Truck(Mk1)';
+                        }
+                        
+                        return {
+                            enemy_variant: variant,
+                            count: e.count || 1,
+                            duration: e.duration || 20.0,
+                            spawn_interval: e.spawn_interval || 0.5,
+                            spawn_delay: e.spawn_delay || 0.0,
+                            path_index: e.path_index || 0
+                        };
+                    })
+                }));
+            }
+            
+            return level;
+        }
+
+        // ============================================================
+        // RON SERIALIZER
+        // ============================================================
+
+        function serializeRON(level) {
+            let output = 'LevelAsset(\n';
+            
+            // Name
+            output += `    name: "${escapeString(level.name)}",\n`;
+            
+            // Player properties
+            output += `    player_health: ${level.player_health},\n`;
+            output += `    player_money: ${level.player_money},\n`;
+            
+            // Viewport size
+            if (level.viewport_size) {
+                output += `    viewport_size: Some((${level.viewport_size[0]}, ${level.viewport_size[1]})),\n`;
+            }
+            
+            // Map size
+            output += `    map_size: (${level.map_size[0]}, ${level.map_size[1]}),\n`;
+            
+            // Map
+            output += '    map: [\n';
+            for (const row of level.map) {
+                output += `        "${escapeString(row)}",\n`;
+            }
+            output += '    ],\n';
+            
+            // Tile symbols
+            if (level.tile_symbols) {
+                output += '    tile_symbols: Some(TileSymbols(\n';
+                output += `        ground: '${level.tile_symbols.ground || '#'}',\n`;
+                output += `        flower: '${level.tile_symbols.flower || 'F'}',\n`;
+                output += `        tree: '${level.tile_symbols.tree || 'T'}',\n`;
+                output += `        road: '${level.tile_symbols.road || '.'}',\n`;
+                output += `        bridge: '${level.tile_symbols.bridge || '='}',\n`;
+                output += `        water: '${level.tile_symbols.water || '~'}',\n`;
+                output += '    )),\n';
+            }
+            
+            // Paths
+            if (level.paths && level.paths.length > 0) {
+                output += '    paths: Some([\n';
+                for (const path of level.paths) {
+                    output += '        Path(\n';
+                    output += `            color: (${formatFloat(path.color[0])}, ${formatFloat(path.color[1])}, ${formatFloat(path.color[2])}),\n`;
+                    output += '            points: [\n';
+                    for (const point of path.points) {
+                        const x = typeof point[0] === 'number' ? formatFloat(point[0]) : point[0];
+                        const y = typeof point[1] === 'number' ? formatFloat(point[1]) : point[1];
+                        output += `                (${x}, ${y}),\n`;
+                    }
+                    output += '            ],\n';
+                    output += '        ),\n';
+                }
+                output += '    ]),\n';
+            }
+            
+            // Waves
+            if (level.waves && level.waves.length > 0) {
+                output += '    waves: Some([\n';
+                for (const wave of level.waves) {
+                    output += '        Wave(\n';
+                    output += `            reward: ${wave.reward},\n`;
+                    output += '            enemies: [\n';
+                    for (const enemy of wave.enemies) {
+                        output += '                WaveEnemies(\n';
+                        output += `                    enemy_variant: ${enemy.enemy_variant},\n`;
+                        output += `                    count: ${enemy.count},\n`;
+                        output += `                    duration: ${formatFloat(enemy.duration)},\n`;
+                        output += `                    spawn_interval: ${formatFloat(enemy.spawn_interval)},\n`;
+                        output += `                    spawn_delay: ${formatFloat(enemy.spawn_delay)},\n`;
+                        output += `                    path_index: ${enemy.path_index},\n`;
+                        output += '                ),\n';
+                    }
+                    output += '            ],\n';
+                    output += '        ),\n';
+                }
+                output += '    ]),\n';
+            }
+            
+            output += ')';
+            
+            return output;
+        }
+
+        function escapeString(str) {
+            return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        }
+
+        function formatFloat(num) {
+            // Format float to avoid precision issues
+            const formatted = parseFloat(num.toFixed(6));
+            // Ensure it has a decimal point for floats
+            if (Number.isInteger(formatted)) {
+                return formatted + '.0';
+            }
+            return formatted.toString();
+        }
+
+        // ============================================================
+        // EDITOR CLASS
+        // ============================================================
+
+        class MapEditor {
+            constructor() {
+                this.level = createEmptyLevel();
+                this.selectedTile = '#';
+                this.selectedTool = 'paint';
+                this.selectedPathIndex = -1;
+                this.selectedWaveIndex = -1;
+                this.addingEnemyToWave = -1;
+                
+                this.zoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.tileSize = 24;
+                this.srcTileSize = 16; // Original tile size in sprite sheet
+                
+                this.isDragging = false;
+                this.lastPaintX = -1;
+                this.lastPaintY = -1;
+                this.pendingSave = false;  // Track if we need to save after drag
+                
+                // History for undo/redo
+                this.history = [];
+                this.historyIndex = -1;
+                this.maxHistory = 50;
+                this.saveHistory(); // Save initial state (history[0])
+                
+                // Load tile image
+                this.tileImage = new Image();
+                this.tileImageLoaded = false;
+                this.tileImage.onload = () => {
+                    this.tileImageLoaded = true;
+                    this.renderTilePalette();
+                    this.render();
+                };
+                this.tileImage.src = 'tilemap_tiles.png';
+                
+                this.canvas = document.getElementById('mapCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.container = document.getElementById('canvasContainer');
+                
+                this.initCanvas();
+                this.bindEvents();
+                this.render();
+            }
+            
+            initCanvas() {
+                this.resizeCanvas();
+                this.centerCanvas();
+            }
+            
+            resizeCanvas() {
+                const width = this.level.map_size[0] * this.tileSize * this.zoom;
+                const height = this.level.map_size[1] * this.tileSize * this.zoom;
+                this.canvas.width = width;
+                this.canvas.height = height;
+                this.canvas.style.width = width + 'px';
+                this.canvas.style.height = height + 'px';
+            }
+            
+            centerCanvas() {
+                const containerRect = this.container.getBoundingClientRect();
+                this.panX = (containerRect.width - this.canvas.width) / 2;
+                this.panY = (containerRect.height - this.canvas.height) / 2;
+                this.canvas.style.left = this.panX + 'px';
+                this.canvas.style.top = this.panY + 'px';
+            }
+            
+            bindEvents() {
+                // Canvas events
+                this.canvas.addEventListener('mousedown', this.onMouseDown.bind(this));
+                this.canvas.addEventListener('mousemove', this.onMouseMove.bind(this));
+                this.canvas.addEventListener('mouseup', this.onMouseUp.bind(this));
+                this.canvas.addEventListener('mouseleave', this.onMouseUp.bind(this));
+                this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+                
+                // Container events for panning
+                this.container.addEventListener('wheel', this.onWheel.bind(this));
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', this.onKeyDown.bind(this));
+                
+                // Drag and drop
+                this.container.addEventListener('dragover', e => e.preventDefault());
+                this.container.addEventListener('drop', this.onDrop.bind(this));
+            }
+            
+            onMouseDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / (this.tileSize * this.zoom));
+                const y = Math.floor((e.clientY - rect.top) / (this.tileSize * this.zoom));
+                
+                if (e.button === 2) { // Right click - erase
+                    this.paintTile(x, y, '#');
+                    this.isDragging = true;
+                    this.pendingSave = true;
+                } else if (this.selectedTool === 'paint') {
+                    this.paintTile(x, y, this.selectedTile);
+                    this.isDragging = true;
+                    this.pendingSave = true;
+                } else if (this.selectedTool === 'erase') {
+                    this.paintTile(x, y, '#');
+                    this.isDragging = true;
+                    this.pendingSave = true;
+                } else if (this.selectedTool === 'fill') {
+                    this.fillArea(x, y, this.selectedTile);
+                    this.saveHistory(); // Fill is atomic, save immediately
+                } else if (this.selectedTool === 'path') {
+                    this.addWaypoint(x, y);
+                }
+                
+                this.lastPaintX = x;
+                this.lastPaintY = y;
+            }
+            
+            onMouseMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / (this.tileSize * this.zoom));
+                const y = Math.floor((e.clientY - rect.top) / (this.tileSize * this.zoom));
+                
+                // Update cursor position display
+                document.getElementById('cursorPos').textContent = `(${x}, ${y})`;
+                
+                if (this.isDragging && (x !== this.lastPaintX || y !== this.lastPaintY)) {
+                    if (this.selectedTool === 'paint') {
+                        this.paintTile(x, y, this.selectedTile);
+                    } else if (this.selectedTool === 'erase') {
+                        this.paintTile(x, y, '#');
+                    }
+                    this.lastPaintX = x;
+                    this.lastPaintY = y;
+                }
+            }
+            
+            onMouseUp(e) {
+                // Save history after drag completes
+                if (this.pendingSave) {
+                    this.saveHistory();
+                    this.pendingSave = false;
+                }
+                this.isDragging = false;
+            }
+            
+            onWheel(e) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                this.zoom = Math.max(0.25, Math.min(4, this.zoom + delta));
+                document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+                this.resizeCanvas();
+                this.centerCanvas();
+                this.render();
+            }
+            
+            onKeyDown(e) {
+                // Ctrl+Z - Undo
+                if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.undo();
+                    return;
+                }
+                // Ctrl+Shift+Z or Ctrl+Y - Redo
+                if ((e.ctrlKey && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
+                    e.preventDefault();
+                    this.redo();
+                    return;
+                }
+                // Ctrl+O - Open
+                if (e.ctrlKey && e.key === 'o') {
+                    e.preventDefault();
+                    document.getElementById('fileInput').click();
+                }
+                // Ctrl+S - Save/Export
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    this.exportFile();
+                }
+                // 1-6 - Select tiles
+                const tileKeys = { '1': '#', '2': '.', '3': '~', '4': '=', '5': 'F', '6': 'T' };
+                if (tileKeys[e.key]) {
+                    this.selectTile(tileKeys[e.key]);
+                }
+                // Delete - Clear selected area or current tile
+                if (e.key === 'Delete') {
+                    // Could implement clear selection
+                }
+            }
+            
+            onDrop(e) {
+                e.preventDefault();
+                const file = e.dataTransfer.files[0];
+                if (file && file.name.endsWith('.ron')) {
+                    this.loadFileObject(file);
+                }
+            }
+            
+            // ============================================================
+            // TILE OPERATIONS
+            // ============================================================
+            
+            paintTile(x, y, tile) {
+                if (x < 0 || x >= this.level.map_size[0] || y < 0 || y >= this.level.map_size[1]) return;
+                
+                const row = this.level.map[y];
+                this.level.map[y] = row.substring(0, x) + tile + row.substring(x + 1);
+                this.render();
+            }
+            
+            fillArea(startX, startY, tile) {
+                if (startX < 0 || startX >= this.level.map_size[0] || startY < 0 || startY >= this.level.map_size[1]) return;
+                
+                const targetTile = this.level.map[startY][startX];
+                if (targetTile === tile) return;
+                
+                const stack = [[startX, startY]];
+                const visited = new Set();
+                
+                while (stack.length > 0) {
+                    const [x, y] = stack.pop();
+                    const key = `${x},${y}`;
+                    
+                    if (visited.has(key)) continue;
+                    if (x < 0 || x >= this.level.map_size[0] || y < 0 || y >= this.level.map_size[1]) continue;
+                    if (this.level.map[y][x] !== targetTile) continue;
+                    
+                    visited.add(key);
+                    this.paintTile(x, y, tile);
+                    
+                    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+                }
+            }
+            
+            // ============================================================
+            // HISTORY (UNDO/REDO)
+            // ============================================================
+            
+            saveHistory() {
+                // Remove any future states if we're not at the end
+                if (this.historyIndex < this.history.length - 1) {
+                    this.history = this.history.slice(0, this.historyIndex + 1);
+                }
+                
+                // Save a deep copy of the current level
+                this.history.push(JSON.parse(JSON.stringify(this.level)));
+                this.historyIndex++;
+                
+                // Limit history size
+                if (this.history.length > this.maxHistory) {
+                    this.history.shift();
+                    this.historyIndex--;
+                }
+            }
+            
+            undo() {
+                if (this.historyIndex > 0) {
+                    this.historyIndex--;
+                    this.level = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+                    this.render();
+                    this.showToast(`Undo (${this.historyIndex} more)`, 'success');
+                } else {
+                    this.showToast('No more undo', 'error');
+                }
+            }
+            
+            redo() {
+                if (this.historyIndex < this.history.length - 1) {
+                    this.historyIndex++;
+                    this.level = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+                    this.render();
+                    this.showToast('Redo', 'success');
+                }
+            }
+            
+            // ============================================================
+            // RENDERING
+            // ============================================================
+            
+            renderTilePalette() {
+                const canvases = document.querySelectorAll('.tile-preview[data-sprite-index]');
+                const srcSize = this.srcTileSize;
+                const dstSize = 32;
+                
+                canvases.forEach(canvas => {
+                    const spriteIndex = parseInt(canvas.dataset.spriteIndex, 10);
+                    const col = spriteIndex % ATLAS_COLS;
+                    const row = Math.floor(spriteIndex / ATLAS_COLS);
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(
+                        this.tileImage,
+                        col * srcSize,
+                        row * srcSize,
+                        srcSize,
+                        srcSize,
+                        0,
+                        0,
+                        dstSize,
+                        dstSize
+                    );
+                });
+            }
+            
+            render() {
+                const width = this.level.map_size[0];
+                const height = this.level.map_size[1];
+                const size = this.tileSize * this.zoom;
+                const srcSize = this.srcTileSize;
+                
+                // Clear canvas
+                this.ctx.fillStyle = '#1a1a2e';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw tiles with auto-tiling
+                if (this.tileImageLoaded) {
+                    // Use actual tile sprites
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            const tileIndex = getTileIndex(this.level.map, x, y, width, height);
+                            const coords = indexToCoords(tileIndex);
+                            
+                            this.ctx.drawImage(
+                                this.tileImage,
+                                coords.col * srcSize,  // src x
+                                coords.row * srcSize,  // src y
+                                srcSize,               // src width
+                                srcSize,               // src height
+                                x * size,              // dst x
+                                y * size,              // dst y
+                                size,                  // dst width
+                                size                   // dst height
+                            );
+                        }
+                    }
+                } else {
+                    // Fallback: Use colored rectangles while image loads
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            const tile = this.level.map[y][x] || '?';
+                            const color = TILE_COLORS[tile] || TILE_COLORS['?'];
+                            
+                            this.ctx.fillStyle = color;
+                            this.ctx.fillRect(x * size, y * size, size, size);
+                            
+                            // Grid lines
+                            this.ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                            this.ctx.strokeRect(x * size, y * size, size, size);
+                        }
+                    }
+                }
+                
+                // Draw paths
+                if (this.level.paths) {
+                    this.ctx.lineWidth = 4 * this.zoom;
+                    
+                    this.level.paths.forEach((path, pathIndex) => {
+                        if (path.points.length < 2) return;
+                        
+                        const color = `rgb(${Math.round(path.color[0] * 255)}, ${Math.round(path.color[1] * 255)}, ${Math.round(path.color[2] * 255)})`;
+                        this.ctx.strokeStyle = color;
+                        this.ctx.globalAlpha = pathIndex === this.selectedPathIndex ? 0.9 : 0.6;
+                        
+                        this.ctx.beginPath();
+                        const startX = path.points[0][0] * size + size / 2;
+                        const startY = path.points[0][1] * size + size / 2;
+                        this.ctx.moveTo(startX, startY);
+                        
+                        for (let i = 1; i < path.points.length; i++) {
+                            const px = path.points[i][0] * size + size / 2;
+                            const py = path.points[i][1] * size + size / 2;
+                            this.ctx.lineTo(px, py);
+                        }
+                        
+                        this.ctx.stroke();
+                        
+                        // Draw waypoints
+                        path.points.forEach((point, i) => {
+                            const px = point[0] * size + size / 2;
+                            const py = point[1] * size + size / 2;
+                            
+                            this.ctx.beginPath();
+                            this.ctx.arc(px, py, 6 * this.zoom, 0, Math.PI * 2);
+                            this.ctx.fillStyle = i === 0 ? '#00ff00' : (i === path.points.length - 1 ? '#ff0000' : '#ffffff');
+                            this.ctx.fill();
+                            this.ctx.strokeStyle = '#000000';
+                            this.ctx.lineWidth = 2 * this.zoom;
+                            this.ctx.stroke();
+                        });
+                    });
+                    
+                    this.ctx.globalAlpha = 1;
+                }
+            }
+            
+            // ============================================================
+            // UI METHODS
+            // ============================================================
+            
+            selectTile(tile) {
+                this.selectedTile = tile;
+                document.querySelectorAll('.tile-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.tile === tile);
+                });
+            }
+            
+            setTool(tool) {
+                this.selectedTool = tool;
+                if (tool === 'path') {
+                    this.canvas.style.cursor = 'crosshair';
+                } else {
+                    this.canvas.style.cursor = 'crosshair';
+                }
+            }
+            
+            zoomIn() {
+                this.zoom = Math.min(4, this.zoom + 0.25);
+                document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+                this.resizeCanvas();
+                this.centerCanvas();
+                this.render();
+            }
+            
+            zoomOut() {
+                this.zoom = Math.max(0.25, this.zoom - 0.25);
+                document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+                this.resizeCanvas();
+                this.centerCanvas();
+                this.render();
+            }
+            
+            resetZoom() {
+                this.zoom = 1;
+                document.getElementById('zoomLevel').textContent = '100%';
+                this.resizeCanvas();
+                this.centerCanvas();
+                this.render();
+            }
+            
+            switchTab(tabName) {
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.tab === tabName);
+                });
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.toggle('active', content.id === `tab-${tabName}`);
+                });
+            }
+            
+            updateMetadata() {
+                this.level.name = document.getElementById('levelName').value || 'unnamed';
+                this.level.player_health = parseInt(document.getElementById('playerHealth').value) || 100;
+                this.level.player_money = parseInt(document.getElementById('playerMoney').value) || 150;
+                this.level.viewport_size = [
+                    parseInt(document.getElementById('viewportW').value) || 20,
+                    parseInt(document.getElementById('viewportH').value) || 20
+                ];
+                document.getElementById('currentLevel').textContent = this.level.name;
+            }
+            
+            updateTileSymbols() {
+                const syms = {
+                    ground: document.getElementById('symGround').value || '#',
+                    flower: document.getElementById('symFlower').value || 'F',
+                    tree: document.getElementById('symTree').value || 'T',
+                    road: document.getElementById('symRoad').value || '.',
+                    bridge: document.getElementById('symBridge').value || '=',
+                    water: document.getElementById('symWater').value || '~'
+                };
+                
+                // Check if all are defaults
+                const isDefault = Object.keys(syms).every(k => syms[k] === DEFAULT_TILE_SYMBOLS[k]);
+                this.level.tile_symbols = isDefault ? null : syms;
+            }
+            
+            resizeMap() {
+                const newWidth = parseInt(document.getElementById('mapWidth').value) || 20;
+                const newHeight = parseInt(document.getElementById('mapHeight').value) || 20;
+                
+                const oldWidth = this.level.map_size[0];
+                const oldHeight = this.level.map_size[1];
+                
+                const newMap = [];
+                for (let y = 0; y < newHeight; y++) {
+                    if (y < oldHeight && this.level.map[y]) {
+                        const row = this.level.map[y];
+                        if (row.length < newWidth) {
+                            newMap.push(row + '#'.repeat(newWidth - row.length));
+                        } else {
+                            newMap.push(row.substring(0, newWidth));
+                        }
+                    } else {
+                        newMap.push('#'.repeat(newWidth));
+                    }
+                }
+                
+                this.level.map_size = [newWidth, newHeight];
+                this.level.map = newMap;
+                this.resizeCanvas();
+                this.centerCanvas();
+                this.render();
+                this.showToast('Map resized to ' + newWidth + 'x' + newHeight, 'success');
+            }
+            
+            // ============================================================
+            // PATH OPERATIONS
+            // ============================================================
+            
+            addPath() {
+                this.level.paths.push({
+                    color: [1.0, 0.5, 0.0],
+                    points: []
+                });
+                this.selectPath(this.level.paths.length - 1);
+                this.renderPathList();
+                this.render();
+            }
+            
+            selectPath(index) {
+                this.selectedPathIndex = index;
+                this.renderPathList();
+                
+                if (index >= 0 && index < this.level.paths.length) {
+                    document.getElementById('pathEditor').style.display = 'block';
+                    document.getElementById('pathIndex').textContent = '#' + (index + 1);
+                    
+                    const path = this.level.paths[index];
+                    document.getElementById('pathColorR').value = path.color[0];
+                    document.getElementById('pathColorG').value = path.color[1];
+                    document.getElementById('pathColorB').value = path.color[2];
+                    
+                    this.renderWaypointList();
+                } else {
+                    document.getElementById('pathEditor').style.display = 'none';
+                }
+                this.render();
+            }
+            
+            deletePath(index) {
+                if (confirm('Delete this path?')) {
+                    this.level.paths.splice(index, 1);
+                    if (this.selectedPathIndex >= this.level.paths.length) {
+                        this.selectedPathIndex = this.level.paths.length - 1;
+                    }
+                    this.renderPathList();
+                    this.render();
+                }
+            }
+            
+            updatePathColor() {
+                if (this.selectedPathIndex < 0) return;
+                
+                this.level.paths[this.selectedPathIndex].color = [
+                    parseFloat(document.getElementById('pathColorR').value) || 0,
+                    parseFloat(document.getElementById('pathColorG').value) || 0,
+                    parseFloat(document.getElementById('pathColorB').value) || 0
+                ];
+                this.renderPathList();
+                this.render();
+            }
+            
+            addWaypoint(x, y) {
+                if (this.selectedPathIndex < 0) {
+                    this.showToast('Please select a path first', 'error');
+                    return;
+                }
+                
+                this.level.paths[this.selectedPathIndex].points.push([x, y]);
+                this.renderWaypointList();
+                this.render();
+            }
+            
+            deleteWaypoint(index) {
+                if (this.selectedPathIndex < 0) return;
+                this.level.paths[this.selectedPathIndex].points.splice(index, 1);
+                this.renderWaypointList();
+                this.render();
+            }
+            
+            clearWaypoints() {
+                if (this.selectedPathIndex < 0) return;
+                this.level.paths[this.selectedPathIndex].points = [];
+                this.renderWaypointList();
+                this.render();
+            }
+            
+            renderPathList() {
+                const container = document.getElementById('pathList');
+                container.innerHTML = '';
+                
+                this.level.paths.forEach((path, index) => {
+                    const entry = document.createElement('div');
+                    entry.className = 'item-entry' + (index === this.selectedPathIndex ? ' selected' : '');
+                    
+                    const colorHex = `rgb(${Math.round(path.color[0] * 255)}, ${Math.round(path.color[1] * 255)}, ${Math.round(path.color[2] * 255)})`;
+                    
+                    entry.innerHTML = `
+                        <div class="item-color" style="background: ${colorHex}"></div>
+                        <span class="item-name">Path #${index + 1} (${path.points.length} points)</span>
+                        <button class="item-delete" onclick="editor.deletePath(${index})">✕</button>
+                    `;
+                    entry.onclick = (e) => {
+                        if (!e.target.classList.contains('item-delete')) {
+                            this.selectPath(index);
+                        }
+                    };
+                    
+                    container.appendChild(entry);
+                });
+            }
+            
+            renderWaypointList() {
+                if (this.selectedPathIndex < 0) return;
+                
+                const container = document.getElementById('waypointList');
+                container.innerHTML = '';
+                
+                const points = this.level.paths[this.selectedPathIndex].points;
+                points.forEach((point, index) => {
+                    const entry = document.createElement('div');
+                    entry.className = 'item-entry';
+                    entry.innerHTML = `
+                        <span class="item-name">Point ${index + 1}: (${point[0]}, ${point[1]})</span>
+                        <button class="item-delete" onclick="editor.deleteWaypoint(${index})">✕</button>
+                    `;
+                    container.appendChild(entry);
+                });
+            }
+            
+            // ============================================================
+            // WAVE OPERATIONS
+            // ============================================================
+            
+            addWave() {
+                this.level.waves.push({
+                    reward: 100,
+                    enemies: []
+                });
+                this.renderWaveList();
+            }
+            
+            deleteWave(index) {
+                if (confirm('Delete this wave?')) {
+                    this.level.waves.splice(index, 1);
+                    this.renderWaveList();
+                }
+            }
+            
+            openEnemyModal(waveIndex) {
+                this.addingEnemyToWave = waveIndex;
+                document.getElementById('enemyModal').classList.add('active');
+                
+                // Update path index max
+                const pathCount = this.level.paths.length;
+                document.getElementById('enemyPathIndex').max = Math.max(0, pathCount - 1);
+            }
+            
+            closeEnemyModal() {
+                document.getElementById('enemyModal').classList.remove('active');
+                this.addingEnemyToWave = -1;
+            }
+            
+            saveEnemyGroup() {
+                if (this.addingEnemyToWave < 0) return;
+                
+                const type = document.getElementById('enemyType').value;
+                const level = document.getElementById('enemyLevel').value;
+                const count = parseInt(document.getElementById('enemyCount').value) || 1;
+                const pathIndex = parseInt(document.getElementById('enemyPathIndex').value) || 0;
+                const duration = parseFloat(document.getElementById('enemyDuration').value) || 20;
+                const interval = parseFloat(document.getElementById('enemyInterval').value) || 0.5;
+                const delay = parseFloat(document.getElementById('enemyDelay').value) || 0;
+                
+                this.level.waves[this.addingEnemyToWave].enemies.push({
+                    enemy_variant: `${type}(${level})`,
+                    count: count,
+                    duration: duration,
+                    spawn_interval: interval,
+                    spawn_delay: delay,
+                    path_index: pathIndex
+                });
+                
+                this.closeEnemyModal();
+                this.renderWaveList();
+            }
+            
+            deleteEnemyGroup(waveIndex, enemyIndex) {
+                this.level.waves[waveIndex].enemies.splice(enemyIndex, 1);
+                this.renderWaveList();
+            }
+            
+            renderWaveList() {
+                const container = document.getElementById('waveList');
+                container.innerHTML = '';
+                
+                this.level.waves.forEach((wave, waveIndex) => {
+                    const waveDiv = document.createElement('div');
+                    waveDiv.className = 'wave-item';
+                    
+                    let enemiesHtml = '';
+                    wave.enemies.forEach((enemy, enemyIndex) => {
+                        const variantMatch = enemy.enemy_variant.match(/(\w+)\((\w+)\)/);
+                        const typeName = variantMatch ? variantMatch[1] : enemy.enemy_variant;
+                        const levelName = variantMatch ? variantMatch[2] : 'Mk1';
+                        
+                        enemiesHtml += `
+                            <div class="enemy-group">
+                                <div class="enemy-group-header">
+                                    <span class="enemy-type-badge" style="background: var(--accent)">${typeName} ${levelName}</span>
+                                    <span style="font-size: 12px;">x${enemy.count}</span>
+                                    <button class="item-delete" onclick="editor.deleteEnemyGroup(${waveIndex}, ${enemyIndex})">✕</button>
+                                </div>
+                                <div class="enemy-stats">
+                                    <span>Path: ${enemy.path_index}</span>
+                                    <span>Dur: ${enemy.duration}s</span>
+                                    <span>Int: ${enemy.spawn_interval}s</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    waveDiv.innerHTML = `
+                        <div class="wave-header">
+                            <span class="wave-title">Wave ${waveIndex + 1}</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 11px;">Reward:</label>
+                                <input type="number" value="${wave.reward}" min="0" style="width: 60px; padding: 4px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 3px; color: var(--text-primary);" 
+                                    onchange="editor.level.waves[${waveIndex}].reward = parseInt(this.value) || 100">
+                                <button class="item-delete" onclick="editor.deleteWave(${waveIndex})">✕</button>
+                            </div>
+                        </div>
+                        ${enemiesHtml}
+                        <button class="add-btn" onclick="editor.openEnemyModal(${waveIndex})">+ Add Enemy Group</button>
+                    `;
+                    
+                    container.appendChild(waveDiv);
+                });
+            }
+            
+            // ============================================================
+            // FILE OPERATIONS
+            // ============================================================
+            
+            newLevel() {
+                if (confirm('Create a new level? Unsaved changes will be lost.')) {
+                    this.level = createEmptyLevel();
+                    this.selectedPathIndex = -1;
+                    this.updateUIFromLevel();
+                    this.resizeCanvas();
+                    this.centerCanvas();
+                    this.render();
+                    this.showToast('New level created', 'success');
+                }
+            }
+            
+            loadFile(input) {
+                const file = input.files[0];
+                if (file) {
+                    this.loadFileObject(file);
+                }
+                input.value = ''; // Reset for re-selecting same file
+            }
+            
+            loadFileObject(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const text = e.target.result;
+                        const parsed = parseRON(text);
+                        this.level = convertParsedToLevel(parsed);
+                        
+                        // Validate
+                        const errors = validateLevel(this.level);
+                        if (errors.length > 0) {
+                            this.showToast('Validation warnings: ' + errors.join(', '), 'error');
+                        }
+                        
+                        this.updateUIFromLevel();
+                        this.resizeCanvas();
+                        this.centerCanvas();
+                        this.render();
+                        this.showToast(`Loaded: ${this.level.name}`, 'success');
+                    } catch (err) {
+                        this.showToast('Failed to load file: ' + err.message, 'error');
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            }
+            
+            exportFile() {
+                // Validate before export
+                const errors = validateLevel(this.level);
+                if (errors.length > 0) {
+                    this.showToast('Validation errors: ' + errors.join(', '), 'error');
+                    return;
+                }
+                
+                const ron = serializeRON(this.level);
+                const blob = new Blob([ron], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = (this.level.name || 'level') + '.ron';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showToast(`Exported: ${a.download}`, 'success');
+            }
+            
+            updateUIFromLevel() {
+                document.getElementById('levelName').value = this.level.name;
+                document.getElementById('playerHealth').value = this.level.player_health;
+                document.getElementById('playerMoney').value = this.level.player_money;
+                document.getElementById('viewportW').value = this.level.viewport_size ? this.level.viewport_size[0] : 20;
+                document.getElementById('viewportH').value = this.level.viewport_size ? this.level.viewport_size[1] : 20;
+                document.getElementById('mapWidth').value = this.level.map_size[0];
+                document.getElementById('mapHeight').value = this.level.map_size[1];
+                document.getElementById('currentLevel').textContent = this.level.name;
+                
+                // Tile symbols
+                if (this.level.tile_symbols) {
+                    document.getElementById('symGround').value = this.level.tile_symbols.ground || '#';
+                    document.getElementById('symFlower').value = this.level.tile_symbols.flower || 'F';
+                    document.getElementById('symTree').value = this.level.tile_symbols.tree || 'T';
+                    document.getElementById('symRoad').value = this.level.tile_symbols.road || '.';
+                    document.getElementById('symBridge').value = this.level.tile_symbols.bridge || '=';
+                    document.getElementById('symWater').value = this.level.tile_symbols.water || '~';
+                } else {
+                    document.getElementById('symGround').value = '#';
+                    document.getElementById('symFlower').value = 'F';
+                    document.getElementById('symTree').value = 'T';
+                    document.getElementById('symRoad').value = '.';
+                    document.getElementById('symBridge').value = '=';
+                    document.getElementById('symWater').value = '~';
+                }
+                
+                // Render lists
+                this.renderPathList();
+                this.renderWaveList();
+            }
+            
+            showToast(message, type = 'success') {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = 'toast toast-' + type;
+                toast.textContent = message;
+                container.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.remove();
+                }, 3000);
+            }
+        }
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        window.editor = new MapEditor();
+        
+    })();
+    </script>
+</body>
+</html>
